@@ -57,15 +57,14 @@ resource "discord_onboarding" "main" {
       required      = false
       in_onboarding = true
 
+      # No explicit "no thanks" option: the provider rejects an option that
+      # grants neither a role nor a channel, and with required = false,
+      # declining is simply not choosing.
       options = [
         {
           title       = "Ping me for announcements"
           description = "You will be mentioned for server news. Rare, we promise."
           role_ids    = [discord_role.announcements.id]
-        },
-        {
-          title       = "No thanks"
-          description = "Read #announcements whenever you feel like it."
         },
       ]
     },
