@@ -150,14 +150,31 @@ Collected here because each one cost real time to establish:
 
 ## Status
 
-The configuration is written and documented; it has **not been applied yet**,
-and the HCL has not been through `terraform validate` — Terraform was not
-installed on the machine this was authored on, which is
-[bootstrap step 1](docs/runbooks/bootstrap.md). The first run of the `validate`
-workflow, or a local `terraform plan`, is the first real check on it. Expect to
-fix a few argument names on the first pass.
+**Validated, not yet applied.** Against Terraform 1.17.2 and
+`smoketurner/discord` 0.4.0:
 
-Resource counts above are from reading the configuration, not from a plan.
+- `terraform validate` passes in all three directories — the module and both
+  environment roots.
+- `terraform fmt -check -recursive` is clean.
+- `tflint --recursive` passes with no findings.
+- All 28 permission constants used in `roles.tf` and `permissions.tf` were
+  evaluated through `provider::discord::permissions()` and accepted.
+
+One real error surfaced and was fixed: the provider rejects an onboarding
+option that grants neither a role nor a channel, which killed a "No thanks"
+opt-out in the announcements prompt. With `required = false`, declining is
+simply not choosing, so the option was unnecessary.
+
+Still unverified, because it needs a bot token and a live guild:
+
+- No `terraform plan` or `apply` has run against a real server, so nothing here
+  has been checked against the Discord API. Enum values such as
+  `verification_level = "medium"` and the AutoMod trigger strings are accepted
+  by the provider's schema but have not been accepted by Discord.
+- Resource counts in the tables above are from reading the configuration.
+- `discord_onboarding` and `discord_welcome_screen` are behind
+  `enable_community`, so they are off in both environments until
+  [bootstrap step 11](docs/runbooks/bootstrap.md).
 
 ## Licence
 
