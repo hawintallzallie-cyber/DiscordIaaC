@@ -1,0 +1,130 @@
+name: plan
+
+# Runs a real plan against both environments on every pull request and posts
+# the result as a comment, so a reviewer sees the actual Discord diff before
+# approving rather than having to read HCL and imagine it.
+#
+# A plan is read-only. Running it against production on a PR is safe and is the
+# whole point: it is how you find out that a change intended for staging would
+# have deleted a channel in the real server.
+
+on:
+  pull_request:
+    paths:
+      - 'environments/**'
+      - 'modules/**'
+      - '.github/workflows/plan.yml'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: plan-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    name: plan (${{ matrix.environment }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [staging, production]
+
+    env:
+      TF_CLOUD_ORGANIZATION: ${{ vars.TF_CLOUD_ORGANIZATION }}
+      TF_WORKSPACE: discord-${{ matrix.environment }}
+      TF_IN_AUTOMATION: 'true'
+      DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.13.3
+          terraform_wrapper: false
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Init
+        run: terraform init -input=false
+        working-directory: environments/${{ matrix.environment }}
+
+      - name: Validate
+        run: terraform validate
+        working-directory: environments/${{ matrix.environment }}
+
+      - name: Plan
+        id: plan
+        working-directory: environments/${{ matrix.environment }}
+        run: |
+          set -o pipefail
+          terraform plan -no-color -input=false -lock-timeout=5m \
+            | tee "${RUNNER_TEMP}/plan-${{ matrix.environment }}.txt"
+
+      - name: Comment plan on the pull request
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        env:
+          ENVIRONMENT: ${{ matrix.environment }}
+          OUTCOME: ${{ steps.plan.outcome }}
+        with:
+          script: |
+            const fs = require('fs');
+            const path = `${process.env.RUNNER_TEMP}/plan-${process.env.ENVIRONMENT}.txt`;
+
+            let plan = 'No plan output was produced. The step probably failed before planning.';
+            try {
+              plan = fs.readFileSync(path, 'utf8').trim() || plan;
+            } catch (err) {
+              core.warning(`Could not read plan output: ${err.message}`);
+            }
+
+            // GitHub rejects comments over 65536 characters. Keep the tail,
+            // because that is where the resource summary lives.
+            const LIMIT = 60000;
+            let truncated = false;
+            if (plan.length > LIMIT) {
+              plan = plan.slice(-LIMIT);
+              truncated = true;
+            }
+
+            const icon = process.env.OUTCOME === 'success' ? 'OK' : 'FAILED';
+            const marker = `<!-- terraform-plan:${process.env.ENVIRONMENT} -->`;
+            const body = [
+              marker,
+              `### Plan: \`${process.env.ENVIRONMENT}\` — ${icon}`,
+              truncated ? '> Output truncated; showing the last 60000 characters.' : '',
+              '',
+              '```hcl',
+              plan,
+              '```',
+            ].filter(Boolean).join('\n');
+
+            // Update this environment's existing comment instead of adding a
+            // new one on every push, so the PR stays readable.
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const existing = comments.find((c) => c.body && c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }

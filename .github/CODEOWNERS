@@ -1,0 +1,9 @@
+# Everything needs the owner's review. Combined with branch protection on main,
+# this is what stops a change reaching the live server without a second look --
+# even when the only reviewer is the person who wrote it.
+*       @REPLACE_WITH_YOUR_GITHUB_USERNAME
+
+# Changes to the pipeline and to production values deserve extra attention,
+# since they are the two ways a mistake escapes staging.
+/.github/                        @REPLACE_WITH_YOUR_GITHUB_USERNAME
+/environments/production/        @REPLACE_WITH_YOUR_GITHUB_USERNAME

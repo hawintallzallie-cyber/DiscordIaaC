@@ -1,0 +1,14 @@
+# Keep LF in the repository regardless of who checks it out. Terraform,
+# tflint and GitHub Actions all run on Linux runners, and a CRLF .tf file
+# produces confusing `terraform fmt` diffs.
+* text=auto eol=lf
+
+# PowerShell stays CRLF in the working tree, which is the Windows convention.
+*.ps1 text eol=crlf
+
+# Terraform lock files are generated; don't let anyone's editor reformat them.
+.terraform.lock.hcl linguist-generated=true -diff
+
+# Keep GitHub's language stats honest about what this repository is.
+*.tf linguist-detectable=true
+docs/** linguist-documentation=true

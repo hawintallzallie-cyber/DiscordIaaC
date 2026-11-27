@@ -1,0 +1,70 @@
+name: validate
+
+# The fast gate. Needs no credentials and no network access to Discord, so it
+# runs on every push and pull request and fails in well under a minute.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fmt:
+    name: terraform fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.13.3
+          terraform_wrapper: false
+
+      - name: Check formatting
+        run: terraform fmt -check -recursive -diff
+
+  validate-module:
+    name: validate module
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.13.3
+          terraform_wrapper: false
+
+      # The module has no cloud block, so it can be initialised without any
+      # state backend and validated without touching HCP Terraform.
+      - name: Init (no backend)
+        run: terraform init -backend=false -input=false
+        working-directory: modules/discord-server
+
+      - name: Validate
+        run: terraform validate
+        working-directory: modules/discord-server
+
+  tflint:
+    name: tflint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
+
+      - name: Init tflint plugins
+        run: tflint --init
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Lint
+        run: tflint --recursive --minimum-failure-severity=warning

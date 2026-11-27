@@ -1,0 +1,30 @@
+version: 2
+
+updates:
+  # The Discord provider is pre-1.0 and moves quickly. A weekly PR, planned
+  # against staging by CI before anyone merges it, is how this project keeps up
+  # without being surprised.
+  - package-ecosystem: terraform
+    directories:
+      - /modules/discord-server
+      - /environments/staging
+      - /environments/production
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - dependencies
+      - terraform
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "chore(ci)"
+    labels:
+      - dependencies
+      - ci
