@@ -1,13 +1,13 @@
 # Code owner for everything in this repository.
 #
-# NOTE: on a private repository on GitHub Free, branch protection is not
-# available, so this file has no enforcement behind it -- GitHub will not
-# require a code owner review before a merge. It is kept for two reasons:
-# it documents ownership, and it starts working the moment the repository
-# becomes public or the plan changes. See ADR 0007.
-*       @michael46-cmd
+# The repository is public, so branch protection is available on the free plan
+# and this file is enforced once "Require review from Code Owners" is turned on
+# (bootstrap step 10). Combined with branch protection on main, it is what
+# stops a change reaching the live server without a second look -- even when
+# the only reviewer is the person who wrote it.
+*       @hawintallzallie-cyber
 
 # Changes to the pipeline and to production values deserve extra attention,
 # since they are the two ways a mistake escapes staging.
-/.github/                        @michael46-cmd
-/environments/production/        @michael46-cmd
+/.github/                        @hawintallzallie-cyber
+/environments/production/        @hawintallzallie-cyber

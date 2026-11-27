@@ -64,13 +64,17 @@ flowchart TD
 into a confirmation box, and the job refuses any ref other than `main`.
 
 That is not the design this started with. The gate was originally a GitHub
-Environment with a required reviewer — which turns out to be a public-repo-only
-feature on GitHub Free. On a private repo `environment: production` is silently
-ignored, so the pipeline would have *looked* gated while a merge applied
-straight to the live server. [ADR 0007](docs/adr/0007-manual-trigger-gate-on-a-private-repo.md)
-records the discovery, the fix, and what it costs: branch protection and
-`CODEOWNERS` have no enforcement on this plan either, so "read the plan before
-merging" is now a habit rather than a check.
+Environment with a required reviewer — which is a **public-repository-only
+feature on GitHub Free**. While the repo was briefly going to be private,
+`environment: production` would have been *silently ignored*: the pipeline
+would have looked gated while a merge applied straight to the live server.
+
+The repo ended up public, so that constraint lifted — but the manual gate was
+kept, because it depends on no plan tier and cannot silently stop working.
+Branch protection now sits in front of it doing the different job of refusing a
+merge that has not passed `validate`, `plan` and review.
+[ADR 0007](docs/adr/0007-manual-trigger-gate-on-a-private-repo.md) records all
+of it, including the version of the design that was wrong.
 
 A plan runs against **production** on every pull request too. Planning is
 read-only, and it is how you find out that a change meant for staging would

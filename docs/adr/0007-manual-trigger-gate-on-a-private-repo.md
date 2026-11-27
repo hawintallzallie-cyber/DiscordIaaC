@@ -1,8 +1,33 @@
 # ADR 0007: Gate production with a manual trigger, not a GitHub Environment
 
-- **Status:** Accepted
+- **Status:** Accepted, amended the same day
 - **Date:** 2026-11-27
 - **Amends:** [ADR 0003](0003-two-guilds-staging-and-production.md)
+
+> ## Update, 2026-11-27 (same day)
+>
+> **The repository was created public, not private.** Branch protection,
+> environment protection rules and enforced `CODEOWNERS` are therefore all
+> available on the free plan after all, and the constraint this ADR was written
+> under no longer applies.
+>
+> **The manual-dispatch gate is kept anyway.** It does not depend on a plan
+> tier, it cannot silently stop working, and it survives the repository being
+> made private later — which, as the body of this ADR records, would disable
+> protection rules without mentioning it.
+>
+> **Branch protection is now turned on as well**, because it does a genuinely
+> different job: the dispatch gate stops a merge reaching production, while
+> branch protection stops a *merge happening at all* without passing `validate`,
+> `plan` and a code owner review. That check has no equivalent in the workflow.
+>
+> **Environment required reviewers are deliberately left off.** They would be a
+> third confirmation of the same thing the dispatch gate already confirms, and
+> redundant friction gets routed around rather than respected.
+>
+> The analysis below is kept unedited. The failure it describes was real, and
+> the reasoning is the point: *verify that a control is enforced, not merely
+> configured.*
 
 ## Context
 

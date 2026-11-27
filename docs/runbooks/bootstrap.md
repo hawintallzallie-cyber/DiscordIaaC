@@ -202,39 +202,51 @@ policy — download `gh_<version>_windows_amd64.zip` from
 
 ---
 
-## 10. Guard rails — read this before relying on any
+## 10. Turn on the guard rails
 
-**On a private repository on GitHub Free, most of them are unavailable.** This
-was discovered after the pipeline was written; [ADR 0007](../adr/0007-manual-trigger-gate-on-a-private-repo.md)
-has the detail.
+The repository is **public**, so all of these are available on the free plan.
+They would not have been on a private repo — [ADR 0007](../adr/0007-manual-trigger-gate-on-a-private-repo.md)
+explains why that matters and what nearly went wrong.
 
-| Guard rail | Private + Free | Consequence |
+**Two layers, doing different jobs:**
+
+| Layer | What it stops | Where it lives |
 | --- | --- | --- |
-| Environment required reviewers | **No** — public repos only | `environment: production` is ignored, not an error |
-| Branch protection / rulesets | **No** | `main` accepts a merge with a failing plan and no review |
-| Enforced `CODEOWNERS` | **No** — needs branch protection | The file documents ownership and nothing more |
-| Repo-level Actions secrets | Yes | `DISCORD_TOKEN` and `TF_API_TOKEN` work as written |
-| Manual `workflow_dispatch` gate | Yes | This is what actually guards production |
+| Manual dispatch gate | A merge reaching **production** | `apply.yml` — already in the repo |
+| Branch protection | A **merge happening at all** without a passing plan and a review | GitHub settings — turn on below |
 
-So the gate that exists is the one in `apply.yml`: production runs only from
-**Actions → apply → Run workflow**, with `target` set to `production` and
-`APPLY` typed into the confirmation box. Nothing a merge does can reach it.
-
-**If you later make the repository public**, all three missing guard rails
-become available for free, and the `environment:` keys already in the workflow
-start enforcing with no change. At that point, do this:
+**Branch protection on `main`** — Settings → Branches → Add rule, or, if you
+ever get the `gh` CLI working:
 
 ```powershell
 gh api -X PUT repos/:owner/:repo/branches/main/protection --input .github/branch-protection.json
 ```
 
-and add yourself as a required reviewer on the `production` environment under
-Settings → Environments. `.github/branch-protection.json` is already written
-with the right status check names.
+What to require:
 
-Until then, the rules in `CONTRIBUTING.md` hold because you follow them, not
-because GitHub enforces them. That is a real weakness and it is written down
-rather than papered over.
+- Pull request before merging, 1 approval, dismiss stale approvals
+- **Require review from Code Owners** — this is what makes `CODEOWNERS` real
+- Require status checks: `terraform fmt`, `validate (module)`,
+  `validate (staging)`, `validate (production)`, `tflint`, `plan (staging)`,
+  `plan (production)`
+- Require branches to be up to date before merging
+- Require conversation resolution
+
+`.github/branch-protection.json` is already written with those check names.
+The checks must have run at least once before GitHub will let you select them,
+so open the first pull request before configuring this.
+
+**Environment required reviewers are deliberately not used.** They would be a
+third confirmation of what the dispatch gate already requires, and redundant
+friction gets routed around rather than respected.
+
+Approving your own pull requests feels silly with one contributor. Do it
+anyway — the point is that nothing reaches the live server without the plan
+having been read.
+
+> **If you ever switch this repository to private**, GitHub drops branch
+> protection and ignores environment rules *without telling you*. The dispatch
+> gate in `apply.yml` would keep working; nothing else here would.
 
 ---
 
