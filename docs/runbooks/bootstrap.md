@@ -209,8 +209,9 @@ gh api -X PUT repos/:owner/:repo/branches/main/protection --input .github/branch
 What to require:
 
 - Pull request before merging, 1 approval, dismiss stale approvals
-- Require status checks: `terraform fmt`, `validate module`, `tflint`,
-  `plan (staging)`, `plan (production)`
+- Require status checks: `terraform fmt`, `validate (module)`,
+  `validate (staging)`, `validate (production)`, `tflint`, `plan (staging)`,
+  `plan (production)`
 - Require branches to be up to date before merging
 - Require conversation resolution
 

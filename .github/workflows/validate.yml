@@ -24,32 +24,46 @@ jobs:
 
       - uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.13.3
+          terraform_version: 1.17.2
           terraform_wrapper: false
 
       - name: Check formatting
         run: terraform fmt -check -recursive -diff
 
-  validate-module:
-    name: validate module
+  validate:
+    name: validate (${{ matrix.label }})
     runs-on: ubuntu-latest
+
+    # `terraform init -backend=false` turns out to work even on the environment
+    # roots, despite their `cloud {}` block -- verified against Terraform 1.17.
+    # So all three directories are validated here, with no HCP token and no
+    # Discord token in scope. Only `plan` needs credentials.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: module
+            dir: modules/discord-server
+          - label: staging
+            dir: environments/staging
+          - label: production
+            dir: environments/production
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.13.3
+          terraform_version: 1.17.2
           terraform_wrapper: false
 
-      # The module has no cloud block, so it can be initialised without any
-      # state backend and validated without touching HCP Terraform.
       - name: Init (no backend)
         run: terraform init -backend=false -input=false
-        working-directory: modules/discord-server
+        working-directory: ${{ matrix.dir }}
 
       - name: Validate
         run: terraform validate
-        working-directory: modules/discord-server
+        working-directory: ${{ matrix.dir }}
 
   tflint:
     name: tflint

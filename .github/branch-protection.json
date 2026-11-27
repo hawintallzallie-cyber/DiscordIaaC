@@ -3,7 +3,9 @@
     "strict": true,
     "contexts": [
       "terraform fmt",
-      "validate module",
+      "validate (module)",
+      "validate (staging)",
+      "validate (production)",
       "tflint",
       "plan (staging)",
       "plan (production)"
