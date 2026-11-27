@@ -160,64 +160,81 @@ terraform login
 
 ## 9. Create the GitHub repository
 
+**The GitHub CLI cannot be installed on this machine.** `winget` ships `gh`
+only as an MSI (installer type `wix`), and MSI installs are blocked here by
+machine policy — the install fails with exit code **1625**,
+`ERROR_INSTALL_POLICY_FAILURE`. Terraform and tflint installed fine because
+they are ZIP packages.
+
+So the repository is created in a browser, and Git Credential Manager (already
+installed with Git for Windows) handles authentication on first push.
+
+1. Go to <https://github.com/new>.
+2. Name it, set visibility, and leave **Add a README**, **Add .gitignore** and
+   **Add license** all off. Any of the three creates an initial commit on
+   GitHub's side, and the local history then has no common ancestor with it —
+   the push is rejected, and the only ways out are a force-push or a merge with
+   `--allow-unrelated-histories`.
+3. Add the remote and push:
+
 ```powershell
-gh auth login
+git remote add origin https://github.com/OWNER/REPO.git
 ```
 
 ```powershell
-gh repo create discord-server-iac --private --source=. --remote=origin
+git push -u origin main
 ```
 
-Set the secrets and the one variable CI needs:
+The first push opens a Git Credential Manager browser window. Sign in there.
 
-```powershell
-gh secret set DISCORD_TOKEN
-```
+**Secrets and variables** normally go in with `gh secret set`. Without the CLI,
+add them by hand under **Settings → Secrets and variables → Actions**:
 
-```powershell
-gh secret set TF_API_TOKEN
-```
+| Name | Kind | Value |
+| --- | --- | --- |
+| `DISCORD_TOKEN` | Secret | The bot token from step 3 |
+| `TF_API_TOKEN` | Secret | The HCP user API token from step 7 |
+| `TF_CLOUD_ORGANIZATION` | Variable | Your HCP organization name |
 
-```powershell
-gh variable set TF_CLOUD_ORGANIZATION
-```
-
-Edit `.github/CODEOWNERS` and replace
-`@REPLACE_WITH_YOUR_GITHUB_USERNAME` with your GitHub username, or CI will
-complain about an unknown owner.
+If you ever want the CLI anyway, the official ZIP build sidesteps the MSI
+policy — download `gh_<version>_windows_amd64.zip` from
+<https://github.com/cli/cli/releases> and extract it somewhere on your PATH.
 
 ---
 
-## 10. Turn on the guard rails
+## 10. Guard rails — read this before relying on any
 
-These are the settings that make the workflow real rather than decorative.
+**On a private repository on GitHub Free, most of them are unavailable.** This
+was discovered after the pipeline was written; [ADR 0007](../adr/0007-manual-trigger-gate-on-a-private-repo.md)
+has the detail.
 
-**Two GitHub Environments** — Settings → Environments:
+| Guard rail | Private + Free | Consequence |
+| --- | --- | --- |
+| Environment required reviewers | **No** — public repos only | `environment: production` is ignored, not an error |
+| Branch protection / rulesets | **No** | `main` accepts a merge with a failing plan and no review |
+| Enforced `CODEOWNERS` | **No** — needs branch protection | The file documents ownership and nothing more |
+| Repo-level Actions secrets | Yes | `DISCORD_TOKEN` and `TF_API_TOKEN` work as written |
+| Manual `workflow_dispatch` gate | Yes | This is what actually guards production |
 
-- `staging` — no protection rules.
-- `production` — tick **Required reviewers** and add yourself.
+So the gate that exists is the one in `apply.yml`: production runs only from
+**Actions → apply → Run workflow**, with `target` set to `production` and
+`APPLY` typed into the confirmation box. Nothing a merge does can reach it.
 
-The production approval gate lives here, not in the workflow YAML, so it cannot
-be removed by editing a workflow file in the same pull request it is guarding.
-
-**Branch protection on `main`** — Settings → Rules → Rulesets, or:
+**If you later make the repository public**, all three missing guard rails
+become available for free, and the `environment:` keys already in the workflow
+start enforcing with no change. At that point, do this:
 
 ```powershell
 gh api -X PUT repos/:owner/:repo/branches/main/protection --input .github/branch-protection.json
 ```
 
-What to require:
+and add yourself as a required reviewer on the `production` environment under
+Settings → Environments. `.github/branch-protection.json` is already written
+with the right status check names.
 
-- Pull request before merging, 1 approval, dismiss stale approvals
-- Require status checks: `terraform fmt`, `validate (module)`,
-  `validate (staging)`, `validate (production)`, `tflint`, `plan (staging)`,
-  `plan (production)`
-- Require branches to be up to date before merging
-- Require conversation resolution
-
-Approving your own pull requests feels silly with one contributor. Do it
-anyway — the point is that nothing reaches the live server without the plan
-having been read.
+Until then, the rules in `CONTRIBUTING.md` hold because you follow them, not
+because GitHub enforces them. That is a real weakness and it is written down
+rather than papered over.
 
 ---
 

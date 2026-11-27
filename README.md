@@ -56,13 +56,21 @@ flowchart TD
     P --> R
     R --> M[Merge to main]
     M --> AS[apply: staging, automatic]
-    AS --> G{Required reviewer}
-    G --> AP[apply: production]
+    MD[Manual dispatch: target=production, type APPLY] --> AP[apply: production]
 ```
 
-The production gate is a GitHub Environment with a required reviewer, not a
-condition in the workflow file — so it cannot be removed by editing a workflow
-in the same pull request it is guarding.
+**Production is never reached by a merge.** It runs only from a manual
+`workflow_dispatch` where the operator selects `production` and types `APPLY`
+into a confirmation box, and the job refuses any ref other than `main`.
+
+That is not the design this started with. The gate was originally a GitHub
+Environment with a required reviewer — which turns out to be a public-repo-only
+feature on GitHub Free. On a private repo `environment: production` is silently
+ignored, so the pipeline would have *looked* gated while a merge applied
+straight to the live server. [ADR 0007](docs/adr/0007-manual-trigger-gate-on-a-private-repo.md)
+records the discovery, the fix, and what it costs: branch protection and
+`CODEOWNERS` have no enforcement on this plan either, so "read the plan before
+merging" is now a habit rather than a check.
 
 A plan runs against **production** on every pull request too. Planning is
 read-only, and it is how you find out that a change meant for staging would
@@ -108,6 +116,7 @@ guild ID, the server name, and two Community flags.
 | [0004](docs/adr/0004-native-discord-features-instead-of-third-party-bots.md) | Native Discord features instead of third-party bots |
 | [0005](docs/adr/0005-explicit-resources-over-a-channel-factory.md) | Explicit resources over a channel factory; `for_each` only for real repetition |
 | [0006](docs/adr/0006-remote-state-in-hcp-terraform.md) | Remote state in HCP Terraform, with the organization kept out of the repo |
+| [0007](docs/adr/0007-manual-trigger-gate-on-a-private-repo.md) | Gate production with a manual trigger, because a private repo on Free has no required reviewers |
 
 ## Getting started
 

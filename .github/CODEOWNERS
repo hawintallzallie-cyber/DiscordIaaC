@@ -1,9 +1,13 @@
-# Everything needs the owner's review. Combined with branch protection on main,
-# this is what stops a change reaching the live server without a second look --
-# even when the only reviewer is the person who wrote it.
-*       @REPLACE_WITH_YOUR_GITHUB_USERNAME
+# Code owner for everything in this repository.
+#
+# NOTE: on a private repository on GitHub Free, branch protection is not
+# available, so this file has no enforcement behind it -- GitHub will not
+# require a code owner review before a merge. It is kept for two reasons:
+# it documents ownership, and it starts working the moment the repository
+# becomes public or the plan changes. See ADR 0007.
+*       @michael46-cmd
 
 # Changes to the pipeline and to production values deserve extra attention,
 # since they are the two ways a mistake escapes staging.
-/.github/                        @REPLACE_WITH_YOUR_GITHUB_USERNAME
-/environments/production/        @REPLACE_WITH_YOUR_GITHUB_USERNAME
+/.github/                        @michael46-cmd
+/environments/production/        @michael46-cmd

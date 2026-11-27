@@ -12,11 +12,14 @@ reads as theatre. Do it anyway — the habits are the deliverable.
 4. A pull request, filled in from the template.
 5. CI posts a plan for staging and production. **Read both.**
 6. Approve, merge. Staging applies automatically.
-7. Look at the staging server. Then approve the production job.
+7. Look at the staging server. Then run the `apply` workflow by hand:
+   **Actions → apply → Run workflow**, target `production`, confirm `APPLY`.
 
-Step 6 is the one that matters. An approval that did not involve reading the
-plan is worth nothing, and the plan is the only place where "this will delete
-a channel" is visible.
+Step 6 is the one that matters, and on this repository nothing enforces it.
+Branch protection is unavailable on a private repo on GitHub Free, so GitHub
+will let you merge with a failing plan and no review. The plan comment is still
+the only place where "this will delete a channel" is visible — reading it is
+now a habit rather than a gate. See [ADR 0007](docs/adr/0007-manual-trigger-gate-on-a-private-repo.md).
 
 ## Where changes go
 

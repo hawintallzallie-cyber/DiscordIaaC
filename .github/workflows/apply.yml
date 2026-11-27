@@ -1,12 +1,17 @@
 name: apply
 
-# Promotion. A merge to main applies to staging immediately, then waits for a
-# human to approve the production job.
+# Promotion, as a private repository on GitHub Free can actually enforce it.
 #
-# The gate is not in this file -- it is the `environment: production` setting
-# below, combined with a required reviewer configured on that GitHub
-# Environment. Putting the gate in GitHub rather than in YAML means it cannot
-# be removed by editing a workflow in the same pull request it is guarding.
+# The original design gated production behind a GitHub Environment with a
+# required reviewer. That does not work here: deployment protection rules are
+# public-repository-only on Free, so `environment: production` would be
+# decorative and a merge to main would apply straight to the live server with
+# nothing stopping it. See ADR 0007.
+#
+# So the gate is the trigger itself. Staging applies automatically on a merge.
+# Production runs ONLY from a deliberate manual dispatch, and only when the
+# operator types APPLY into the confirmation box. There is no path from a
+# `git push` to a production apply.
 
 on:
   push:
@@ -15,7 +20,22 @@ on:
       - 'environments/**'
       - 'modules/**'
       - '.github/workflows/apply.yml'
+
   workflow_dispatch:
+    inputs:
+      target:
+        description: 'Which environment to apply'
+        required: true
+        default: staging
+        type: choice
+        options:
+          - staging
+          - production
+      confirm:
+        description: 'Type APPLY to confirm. Required for production, ignored for staging.'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -30,6 +50,7 @@ jobs:
     name: apply staging
     runs-on: ubuntu-latest
     environment: staging
+    if: github.event_name == 'push' || inputs.target == 'staging'
 
     env:
       TF_CLOUD_ORGANIZATION: ${{ vars.TF_CLOUD_ORGANIZATION }}
@@ -57,8 +78,14 @@ jobs:
   production:
     name: apply production
     runs-on: ubuntu-latest
-    needs: staging
     environment: production
+
+    # Three conditions, all required. A push cannot satisfy the first one, so
+    # production is unreachable from a merge no matter what else is true.
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      inputs.target == 'production' &&
+      inputs.confirm == 'APPLY'
 
     env:
       TF_CLOUD_ORGANIZATION: ${{ vars.TF_CLOUD_ORGANIZATION }}
@@ -67,6 +94,12 @@ jobs:
       DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
 
     steps:
+      - name: Refuse to run from a branch
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Production applies run from main only. This dispatch used ${{ github.ref }}."
+          exit 1
+
       - uses: actions/checkout@v4
 
       - uses: hashicorp/setup-terraform@v3
@@ -79,9 +112,9 @@ jobs:
         run: terraform init -input=false
         working-directory: environments/production
 
-      # Planned again here rather than reusing the pull request's plan file.
-      # The saved plan is tied to a state serial, and staging's apply may have
-      # moved things; re-planning means the approver sees what will really run.
+      # Planned here rather than reusing the pull request's plan file: a saved
+      # plan is tied to a state serial, and staging's apply may have moved
+      # things since. Re-planning means the log shows what actually ran.
       - name: Plan
         run: terraform plan -no-color -input=false -out=tfplan -lock-timeout=5m
         working-directory: environments/production
